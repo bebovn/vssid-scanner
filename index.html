@@ -27,7 +27,17 @@
 
     .form-group { margin-bottom: 8px; }
     label { display: block; font-size: 12px; font-weight: 600; color: #333; margin-bottom: 2px; }
-    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; outline: none; }
+    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; outline: none; transition: background 0.2s, border-color 0.2s; }
+    
+    /* Giao diện khóa mờ chống nhập */
+    input.locked {
+      background-color: #e9ecef !important;
+      color: #495057 !important;
+      border-color: #ced4da !important;
+      cursor: not-allowed;
+      font-weight: 600;
+    }
+
     .row { display: flex; gap: 8px; }
     .row .form-group { flex: 1; }
     .hint { font-size: 11px; color: #666; margin-top: 2px; }
@@ -48,7 +58,6 @@
       <div class="scan-guide" id="scanGuide"><div class="scan-laser"></div></div>
       <div class="cam-status" id="camStatus">Đang bật camera sau...</div>
       
-      <!-- Man hinh khi da dong camera -->
       <div class="cam-closed-box" id="camClosedBox">
         <div style="font-size:13px;margin-bottom:6px">✅ Đã quét xong hồ sơ</div>
         <button type="button" class="btn-reopen" id="btnReopen">📷 Quét hồ sơ tiếp theo</button>
@@ -76,7 +85,7 @@
       <div class="row">
         <div class="form-group">
           <label>Tỉnh/Thành</label>
-          <input type="text" id="tinhName" value="[86] Vĩnh Long" readonly style="background:#eef2f6;color:#555;font-weight:600">
+          <input type="text" id="tinhName" value="[86] Vĩnh Long" readonly class="locked">
         </div>
         <div class="form-group">
           <label>Xã/Phường *</label>
@@ -85,7 +94,7 @@
       </div>
 
       <div class="form-group">
-        <label>Số nhà, ngõ, đường, ấp (Đã cắt gọn) *</label>
+        <label>Số nhà, ngõ, đường, ấp, Khóm *</label>
         <input type="text" id="diaChi" required placeholder="Ấp Bến Thế...">
       </div>
 
@@ -108,7 +117,7 @@
   <canvas id="qrCanvas" style="display:none;"></canvas>
 
   <script>
-    // === DÁN LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY ===
+    // === DÁN LINK GOOGLE APPS SCRIPT WEB APP CỦA BẠN VÀO ĐÂY ===
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznTBf7VtvQrVCWzu9LPDuOCPxqnscKV44BqkZENCsZabdea2UcNziCx3Pvi5Tyvi_WlA/exec";
 
     const video = document.getElementById('video');
@@ -118,6 +127,10 @@
     const scanGuide = document.getElementById('scanGuide');
     const camClosedBox = document.getElementById('camClosedBox');
     const btnReopen = document.getElementById('btnReopen');
+
+    const cccdInput = document.getElementById('cccd');
+    const hoTenInput = document.getElementById('hoTen');
+    const maBhxhInput = document.getElementById('maBhxh');
 
     let isScanning = true;
     let streamTrack = null;
@@ -138,7 +151,15 @@
       }
     });
 
-    // Tra cứu mã BHXH
+    // Mở khóa lại tất cả các ô
+    function resetFieldLocks() {
+      [cccdInput, hoTenInput, maBhxhInput].forEach(inp => {
+        inp.readOnly = false;
+        inp.classList.remove('locked');
+      });
+    }
+
+    // Tra cứu mã BHXH & Khóa mờ nếu tìm thấy
     async function lookupBhxh(cccd) {
       const hint = document.getElementById('bhxhHint');
       hint.textContent = 'Đang tìm mã BHXH...';
@@ -146,13 +167,25 @@
         const res = await fetch(SCRIPT_URL + '?action=lookupBhxh&cccd=' + encodeURIComponent(cccd));
         const json = await res.json();
         if (json.status === 'success' && json.maBhxh) {
-          document.getElementById('maBhxh').value = json.maBhxh;
-          hint.textContent = '✅ Đã tìm thấy mã BHXH'; hint.style.color = '#2e7d32';
+          maBhxhInput.value = json.maBhxh;
+          // Khóa mờ ô BHXH nếu có dữ liệu
+          maBhxhInput.readOnly = true;
+          maBhxhInput.classList.add('locked');
+          hint.textContent = '✅ Đã tìm thấy mã BHXH (Đã khóa)';
+          hint.style.color = '#2e7d32';
         } else {
-          document.getElementById('maBhxh').value = '';
-          hint.textContent = '⚠️ Chưa có mã BHXH (Nhập tay)'; hint.style.color = '#d32f2f';
+          maBhxhInput.value = '';
+          // Để mở ô BHXH nếu chưa có để nhập tay
+          maBhxhInput.readOnly = false;
+          maBhxhInput.classList.remove('locked');
+          hint.textContent = '⚠️ Chưa có mã BHXH (Nhập tay)';
+          hint.style.color = '#d32f2f';
         }
-      } catch(e) { hint.textContent = 'Lỗi tra cứu'; }
+      } catch(e) { 
+        hint.textContent = 'Lỗi tra cứu';
+        maBhxhInput.readOnly = false;
+        maBhxhInput.classList.remove('locked');
+      }
     }
 
     document.getElementById('cccd').addEventListener('blur', function() {
@@ -160,50 +193,53 @@
       if (c.length >= 9) lookupBhxh(c);
     });
 
-    // Hàm cắt gọt địa chỉ: Chỉ lấy phần đầu (Ấp/Số nhà), bỏ xã/huyện/tỉnh
+    // Cắt gọt địa chỉ: Chỉ lấy phần đầu (Ấp/Số nhà), bỏ xã/huyện/tỉnh
     function cleanShortAddress(fullAddr) {
       if (!fullAddr) return '';
-      // Phân tách bởi dấu phẩy
       const parts = fullAddr.split(',').map(s => s.trim()).filter(Boolean);
-      if (parts.length === 1) return parts[0];
-      
-      // Nếu có từ 2 phần trở lên (VD: Ấp Bến Thế, Tân Sơn, Trà Cú, Trà Vinh)
-      // Phần đầu tiên chính là Số nhà/Ngõ/Ấp
-      return parts[0];
+      return parts.length > 0 ? parts[0] : '';
     }
 
-    // Tự động bóc tách mã QR CCCD
+    // Tự động bóc tách mã QR CCCD & Khóa mờ các trường cố định
     function parseQRCode(text) {
       if (!text || !text.includes('|')) return false;
       const parts = text.split('|');
       if (parts.length >= 6) {
         const cccdNum = parts[0].trim();
-        document.getElementById('cccd').value = cccdNum;
-        document.getElementById('hoTen').value = parts[2].trim();
         
+        // 1. Điền & Khóa mờ CCCD
+        cccdInput.value = cccdNum;
+        cccdInput.readOnly = true;
+        cccdInput.classList.add('locked');
+
+        // 2. Điền & Khóa mờ Họ và tên
+        hoTenInput.value = parts[2].trim();
+        hoTenInput.readOnly = true;
+        hoTenInput.classList.add('locked');
+        
+        // 3. Cắt ngắn địa chỉ
         const fullAddr = parts[5].trim();
-        // Cắt gọn địa chỉ chỉ lấy tới ấp/số nhà
         document.getElementById('diaChi').value = cleanShortAddress(fullAddr);
 
+        // 4. Tra cứu mã BHXH (sẽ tự khóa nếu tìm thấy)
         lookupBhxh(cccdNum);
 
-        // Khớp xã tự động
+        // 5. Khớp xã tự động
         if (danhMucXa && danhMucXa.length > 0) {
           const matched = danhMucXa.find(x => fullAddr.toLowerCase().includes(x.ten.toLowerCase()));
           if (matched) document.getElementById('xaCode').value = matched.maphuongxa;
         }
 
-        showMsg('✅ Đã nhận diện & điền dữ liệu CCCD!', 'ok');
+        showMsg('✅ Đã nhận diện CCCD (Đã khóa trường cố định)!', 'ok');
         if (navigator.vibrate) navigator.vibrate(200);
 
-        // TỰ ĐỘNG TẮT CAMERA SAU KHI QUÉT XONG
+        // Tắt Camera sau khi quét thành công
         stopCamera();
         return true;
       }
       return false;
     }
 
-    // Vòng lặp quét video thời gian thực
     function scanFrame() {
       if (!isScanning) return;
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -219,7 +255,6 @@
       requestAnimationFrame(scanFrame);
     }
 
-    // Tắt Camera giải phóng phần cứng
     function stopCamera() {
       isScanning = false;
       if (streamTrack) {
@@ -232,7 +267,6 @@
       camClosedBox.style.display = 'block';
     }
 
-    // Mở Camera Sau
     async function startCamera() {
       video.style.display = 'block';
       scanGuide.style.display = 'block';
@@ -266,9 +300,9 @@
 
       const payload = {
         action: 'addRecord',
-        cccd: document.getElementById('cccd').value.trim(),
-        maBhxh: document.getElementById('maBhxh').value.trim(),
-        hoTen: document.getElementById('hoTen').value.trim(),
+        cccd: cccdInput.value.trim(),
+        maBhxh: maBhxhInput.value.trim(),
+        hoTen: hoTenInput.value.trim(),
         tinhCode: '86',
         xaCode: document.getElementById('xaCode').value,
         diaChi: document.getElementById('diaChi').value.trim(),
@@ -285,9 +319,13 @@
         btn.disabled = false; 
         btn.textContent = 'Lưu vào hàng đợi';
         showMsg('🎉 Đã thêm hồ sơ vào Google Sheet thành công!', 'ok');
+        
+        // Reset form và mở khóa lại cho lượt quét sau
         document.getElementById('recordForm').reset();
+        resetFieldLocks();
         document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
-        // Mở lại Camera sẵn sàng cho lượt quét kế tiếp
+
+        // Bật lại Camera
         startCamera();
       })
       .catch(err => {
