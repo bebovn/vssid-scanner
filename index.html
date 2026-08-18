@@ -10,12 +10,21 @@
     body { background: #f0f2f5; padding: 10px; display: flex; justify-content: center; }
     .card { background: #fff; width: 100%; max-width: 480px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 14px; }
     h2 { font-size: 16px; color: #0d47a1; text-align: center; margin-bottom: 10px; font-weight: 700; }
-    .scanner-wrap { position: relative; width: 100%; height: 230px; background: #000; border-radius: 10px; overflow: hidden; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; }
+    
+    .scanner-wrap { 
+      position: relative; width: 100%; height: 210px; background: #111; 
+      border-radius: 10px; overflow: hidden; margin-bottom: 10px; 
+      display: flex; align-items: center; justify-content: center; 
+    }
     #video { width: 100%; height: 100%; object-fit: cover; }
-    .scan-guide { position: absolute; width: 160px; height: 160px; border: 2.5px solid #00e676; border-radius: 10px; box-shadow: 0 0 0 4000px rgba(0,0,0,0.45); pointer-events: none; }
+    .scan-guide { position: absolute; width: 150px; height: 150px; border: 2px solid #00e676; border-radius: 10px; box-shadow: 0 0 0 4000px rgba(0,0,0,0.45); pointer-events: none; }
     .scan-laser { width: 100%; height: 2px; background: #00e676; position: absolute; top: 0; box-shadow: 0 0 4px #00e676; animation: scanAnim 1.8s infinite ease-in-out; }
     @keyframes scanAnim { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+    
     .cam-status { position: absolute; bottom: 6px; color: #fff; font-size: 11px; background: rgba(0,0,0,0.7); padding: 3px 10px; border-radius: 12px; }
+    .cam-closed-box { display: none; text-align: center; color: #fff; padding: 20px; }
+    .btn-reopen { background: #1565c0; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+
     .form-group { margin-bottom: 8px; }
     label { display: block; font-size: 12px; font-weight: 600; color: #333; margin-bottom: 2px; }
     input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; outline: none; }
@@ -32,21 +41,29 @@
 <body>
   <div class="card">
     <h2>⚡ Quét Tự Động QR CCCD &rarr; Sheet</h2>
-    <div class="scanner-wrap">
+
+    <!-- KHUNG LIVE CAMERA -->
+    <div class="scanner-wrap" id="scannerWrap">
       <video id="video" playsinline muted autoplay></video>
-      <div class="scan-guide"><div class="scan-laser"></div></div>
+      <div class="scan-guide" id="scanGuide"><div class="scan-laser"></div></div>
       <div class="cam-status" id="camStatus">Đang bật camera sau...</div>
+      
+      <!-- Man hinh khi da dong camera -->
+      <div class="cam-closed-box" id="camClosedBox">
+        <div style="font-size:13px;margin-bottom:6px">✅ Đã quét xong hồ sơ</div>
+        <button type="button" class="btn-reopen" id="btnReopen">📷 Quét hồ sơ tiếp theo</button>
+      </div>
     </div>
 
     <form id="recordForm" autocomplete="off">
       <div class="row">
         <div class="form-group">
           <label>Số CCCD *</label>
-          <input type="text" id="cccd" required placeholder="079...">
+          <input type="text" id="cccd" required placeholder="079..." pattern="\d*">
         </div>
         <div class="form-group">
           <label>Mã số BHXH *</label>
-          <input type="text" id="maBhxh" required placeholder="8411...">
+          <input type="text" id="maBhxh" required placeholder="8411..." pattern="\d*">
           <div class="hint" id="bhxhHint">Tự động tra cứu từ Sheet</div>
         </div>
       </div>
@@ -68,14 +85,14 @@
       </div>
 
       <div class="form-group">
-        <label>Số nhà, đường, ấp *</label>
-        <input type="text" id="diaChi" required placeholder="Số nhà, khóm/ấp...">
+        <label>Số nhà, ngõ, đường, ấp (Đã cắt gọn) *</label>
+        <input type="text" id="diaChi" required placeholder="Ấp Bến Thế...">
       </div>
 
       <div class="row">
         <div class="form-group">
           <label>Số điện thoại *</label>
-          <input type="tel" id="phone" required placeholder="0901234567">
+          <input type="tel" id="phone" required placeholder="0901234567" pattern="\d*">
         </div>
         <div class="form-group">
           <label>Email</label>
@@ -91,16 +108,22 @@
   <canvas id="qrCanvas" style="display:none;"></canvas>
 
   <script>
-    // === DÁN LINK GOOGLE APPS SCRIPT WEB APP Ở ĐÂY ===
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxnYz6J6je3RjW909lUUBlohn9yO2Uhtv1Tv_JAAbVGt0iK9OLcNAlEca2BoPOvDNf4JA/exec";
+    // === DÁN LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY ===
+    const SCRIPT_URL = "https://script.google.com/u/0/home/projects/1WMCyn43xtH8j7tNinUtit-G_VDkQioNq-sv86ODGk0A8ihLzwp95Oc1p/edit";
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('qrCanvas');
     const ctx = canvas.getContext('2d');
     const camStatus = document.getElementById('camStatus');
+    const scanGuide = document.getElementById('scanGuide');
+    const camClosedBox = document.getElementById('camClosedBox');
+    const btnReopen = document.getElementById('btnReopen');
+
     let isScanning = true;
+    let streamTrack = null;
     let danhMucXa = [];
 
+    // Tải danh mục xã từ API
     fetch(SCRIPT_URL + '?action=getXaList').then(r => r.json()).then(j => {
       if (j.status === 'success' && j.data) {
         danhMucXa = j.data;
@@ -108,12 +131,14 @@
         sel.innerHTML = '<option value="">-- Chọn Xã/Phường --</option>';
         danhMucXa.forEach(x => {
           const opt = document.createElement('option');
-          opt.value = x.maphuongxa; opt.textContent = `${x.ten} [${x.maphuongxa}]`;
+          opt.value = x.maphuongxa; 
+          opt.textContent = `${x.ten} [${x.maphuongxa}]`;
           sel.appendChild(opt);
         });
       }
     });
 
+    // Tra cứu mã BHXH
     async function lookupBhxh(cccd) {
       const hint = document.getElementById('bhxhHint');
       hint.textContent = 'Đang tìm mã BHXH...';
@@ -135,6 +160,19 @@
       if (c.length >= 9) lookupBhxh(c);
     });
 
+    // Hàm cắt gọt địa chỉ: Chỉ lấy phần đầu (Ấp/Số nhà), bỏ xã/huyện/tỉnh
+    function cleanShortAddress(fullAddr) {
+      if (!fullAddr) return '';
+      // Phân tách bởi dấu phẩy
+      const parts = fullAddr.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length === 1) return parts[0];
+      
+      // Nếu có từ 2 phần trở lên (VD: Ấp Bến Thế, Tân Sơn, Trà Cú, Trà Vinh)
+      // Phần đầu tiên chính là Số nhà/Ngõ/Ấp
+      return parts[0];
+    }
+
+    // Tự động bóc tách mã QR CCCD
     function parseQRCode(text) {
       if (!text || !text.includes('|')) return false;
       const parts = text.split('|');
@@ -142,58 +180,89 @@
         const cccdNum = parts[0].trim();
         document.getElementById('cccd').value = cccdNum;
         document.getElementById('hoTen').value = parts[2].trim();
+        
         const fullAddr = parts[5].trim();
-        document.getElementById('diaChi').value = fullAddr;
+        // Cắt gọn địa chỉ chỉ lấy tới ấp/số nhà
+        document.getElementById('diaChi').value = cleanShortAddress(fullAddr);
+
         lookupBhxh(cccdNum);
+
+        // Khớp xã tự động
         if (danhMucXa && danhMucXa.length > 0) {
           const matched = danhMucXa.find(x => fullAddr.toLowerCase().includes(x.ten.toLowerCase()));
           if (matched) document.getElementById('xaCode').value = matched.maphuongxa;
         }
+
         showMsg('✅ Đã nhận diện & điền dữ liệu CCCD!', 'ok');
         if (navigator.vibrate) navigator.vibrate(200);
+
+        // TỰ ĐỘNG TẮT CAMERA SAU KHI QUÉT XONG
+        stopCamera();
         return true;
       }
       return false;
     }
 
+    // Vòng lặp quét video thời gian thực
     function scanFrame() {
       if (!isScanning) return;
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth; 
+        canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
         if (code && code.data && parseQRCode(code.data)) {
-          camStatus.textContent = '✅ Đã quét xong!';
-          isScanning = false;
-          setTimeout(() => { isScanning = true; camStatus.textContent = 'Hướng mã QR vào khung ngắm'; requestAnimationFrame(scanFrame); }, 2500);
           return;
         }
       }
       requestAnimationFrame(scanFrame);
     }
 
+    // Tắt Camera giải phóng phần cứng
+    function stopCamera() {
+      isScanning = false;
+      if (streamTrack) {
+        streamTrack.getTracks().forEach(t => t.stop());
+        streamTrack = null;
+      }
+      video.style.display = 'none';
+      scanGuide.style.display = 'none';
+      camStatus.style.display = 'none';
+      camClosedBox.style.display = 'block';
+    }
+
+    // Mở Camera Sau
     async function startCamera() {
+      video.style.display = 'block';
+      scanGuide.style.display = 'block';
+      camStatus.style.display = 'block';
+      camClosedBox.style.display = 'none';
+      camStatus.textContent = 'Hướng mã QR vào khung ngắm';
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        streamTrack = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
         });
-        video.srcObject = stream;
+        video.srcObject = streamTrack;
         video.setAttribute("playsinline", true);
         await video.play();
-        camStatus.textContent = 'Hướng mã QR vào khung ngắm';
+        isScanning = true;
         requestAnimationFrame(scanFrame);
       } catch (e) {
         camStatus.textContent = '❌ Lỗi: ' + e.message;
       }
     }
 
+    btnReopen.addEventListener('click', startCamera);
     window.addEventListener('DOMContentLoaded', startCamera);
 
+    // Gửi dữ liệu về Google Sheet
     document.getElementById('recordForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const btn = document.getElementById('btnSubmit');
-      btn.disabled = true; btn.textContent = 'Đang lưu vào Sheet...';
+      btn.disabled = true; 
+      btn.textContent = 'Đang lưu vào Sheet...';
 
       const payload = {
         action: 'addRecord',
@@ -207,23 +276,33 @@
         email: document.getElementById('email').value.trim()
       };
 
-      fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
-        .then(r => r.json()).then(r => {
-          btn.disabled = false; btn.textContent = 'Lưu vào hàng đợi';
-          showMsg('🎉 Đã thêm hồ sơ vào Google Sheet thành công!', 'ok');
-          document.getElementById('recordForm').reset();
-          document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
-        })
-        .catch(err => {
-          btn.disabled = false; btn.textContent = 'Lưu vào hàng đợi';
-          showMsg('Lỗi khi gửi: ' + err, 'err');
-        });
+      fetch(SCRIPT_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload) 
+      })
+      .then(r => r.json()).then(r => {
+        btn.disabled = false; 
+        btn.textContent = 'Lưu vào hàng đợi';
+        showMsg('🎉 Đã thêm hồ sơ vào Google Sheet thành công!', 'ok');
+        document.getElementById('recordForm').reset();
+        document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
+        // Mở lại Camera sẵn sàng cho lượt quét kế tiếp
+        startCamera();
+      })
+      .catch(err => {
+        btn.disabled = false; 
+        btn.textContent = 'Lưu vào hàng đợi';
+        showMsg('Lỗi khi gửi: ' + err, 'err');
+      });
     });
 
     function showMsg(t, type) {
       const b = document.getElementById('msgBox');
-      b.textContent = t; b.className = type === 'ok' ? 'msg-ok' : 'msg-err';
-      b.style.display = 'block'; setTimeout(() => b.style.display = 'none', 4000);
+      b.textContent = t; 
+      b.className = type === 'ok' ? 'msg-ok' : 'msg-err';
+      b.style.display = 'block'; 
+      setTimeout(() => b.style.display = 'none', 4000);
     }
   </script>
 </body>
