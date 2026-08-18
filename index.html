@@ -89,12 +89,14 @@
         </div>
         <div class="form-group">
           <label>Xã/Phường *</label>
-          <select id="xaCode" required><option value="">-- Đang tải danh sách --</option></select>
+          <select id="xaCode" required>
+            <option value="">-- Chọn Xã/Phường --</option>
+          </select>
         </div>
       </div>
 
       <div class="form-group">
-        <label>Số nhà, ngõ, đường, ấp, Khóm *</label>
+        <label>Số nhà, ngõ, đường, ấp (Đã cắt gọn) *</label>
         <input type="text" id="diaChi" required placeholder="Ấp Bến Thế...">
       </div>
 
@@ -117,8 +119,23 @@
   <canvas id="qrCanvas" style="display:none;"></canvas>
 
   <script>
-    // === DÁN LINK GOOGLE APPS SCRIPT WEB APP CỦA BẠN VÀO ĐÂY ===
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznTBf7VtvQrVCWzu9LPDuOCPxqnscKV44BqkZENCsZabdea2UcNziCx3Pvi5Tyvi_WlA/exec";
+    // === DÁN LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY ===
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwALPcLdn1IE8LtwPQrtMBdHawH9WvJQ27PDnmilTJbagXW_HJ2xulD37hG7Sw7UD8_pQ/exec";
+
+    // DANH MỤC XÃ TẢI TỨC THÌ (KHÔNG CẦN CHỜ MẠNG)
+    const DANH_MUC_XA = [
+      {"ten": "Xã Cầu Ngang", "matinh": "86", "maphuongxa": "29416"},
+      {"ten": "Xã Mỹ Long", "matinh": "86", "maphuongxa": "29419"},
+      {"ten": "Xã Vinh Kim", "matinh": "86", "maphuongxa": "29431"},
+      {"ten": "Xã Nhị Trường", "matinh": "86", "maphuongxa": "29446"},
+      {"ten": "Xã Hiệp Mỹ", "matinh": "86", "maphuongxa": "29455"},
+      {"ten": "Xã Trà Cú", "matinh": "86", "maphuongxa": "29461"},
+      {"ten": "Xã Tập Sơn", "matinh": "86", "maphuongxa": "29467"},
+      {"ten": "Xã Lưu Nghiệp Anh", "matinh": "86", "maphuongxa": "29476"},
+      {"ten": "Xã Hàm Giang", "matinh": "86", "maphuongxa": "29489"},
+      {"ten": "Xã Đại An", "matinh": "86", "maphuongxa": "29491"},
+      {"ten": "Xã Long Hiệp", "matinh": "86", "maphuongxa": "29506"}
+    ];
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('qrCanvas');
@@ -134,24 +151,21 @@
 
     let isScanning = true;
     let streamTrack = null;
-    let danhMucXa = [];
 
-    // Tải danh mục xã từ API
-    fetch(SCRIPT_URL + '?action=getXaList').then(r => r.json()).then(j => {
-      if (j.status === 'success' && j.data) {
-        danhMucXa = j.data;
-        const sel = document.getElementById('xaCode');
-        sel.innerHTML = '<option value="">-- Chọn Xã/Phường --</option>';
-        danhMucXa.forEach(x => {
-          const opt = document.createElement('option');
-          opt.value = x.maphuongxa; 
-          opt.textContent = `${x.ten} [${x.maphuongxa}]`;
-          sel.appendChild(opt);
-        });
-      }
-    });
+    // 1. Tải danh mục xã vào dropdown ngay khi mở trang
+    function loadXaList() {
+      const sel = document.getElementById('xaCode');
+      sel.innerHTML = '<option value="">-- Chọn Xã/Phường --</option>';
+      DANH_MUC_XA.forEach(x => {
+        const opt = document.createElement('option');
+        opt.value = x.maphuongxa; 
+        opt.textContent = `${x.ten} [${x.maphuongxa}]`;
+        sel.appendChild(opt);
+      });
+    }
+    loadXaList();
 
-    // Mở khóa lại tất cả các ô
+    // 2. Mở khóa lại các trường
     function resetFieldLocks() {
       [cccdInput, hoTenInput, maBhxhInput].forEach(inp => {
         inp.readOnly = false;
@@ -159,7 +173,7 @@
       });
     }
 
-    // Tra cứu mã BHXH & Khóa mờ nếu tìm thấy
+    // 3. Tra cứu mã BHXH từ Google Sheet & Tự động khóa nếu tìm thấy
     async function lookupBhxh(cccd) {
       const hint = document.getElementById('bhxhHint');
       hint.textContent = 'Đang tìm mã BHXH...';
@@ -168,21 +182,19 @@
         const json = await res.json();
         if (json.status === 'success' && json.maBhxh) {
           maBhxhInput.value = json.maBhxh;
-          // Khóa mờ ô BHXH nếu có dữ liệu
           maBhxhInput.readOnly = true;
           maBhxhInput.classList.add('locked');
           hint.textContent = '✅ Đã tìm thấy mã BHXH (Đã khóa)';
           hint.style.color = '#2e7d32';
         } else {
           maBhxhInput.value = '';
-          // Để mở ô BHXH nếu chưa có để nhập tay
           maBhxhInput.readOnly = false;
           maBhxhInput.classList.remove('locked');
           hint.textContent = '⚠️ Chưa có mã BHXH (Nhập tay)';
           hint.style.color = '#d32f2f';
         }
       } catch(e) { 
-        hint.textContent = 'Lỗi tra cứu';
+        hint.textContent = 'Nhập tay mã BHXH nếu có';
         maBhxhInput.readOnly = false;
         maBhxhInput.classList.remove('locked');
       }
@@ -193,47 +205,47 @@
       if (c.length >= 9) lookupBhxh(c);
     });
 
-    // Cắt gọt địa chỉ: Chỉ lấy phần đầu (Ấp/Số nhà), bỏ xã/huyện/tỉnh
+    // 4. Cắt gọn địa chỉ (chỉ lấy phần đầu: Ấp/Số nhà)
     function cleanShortAddress(fullAddr) {
       if (!fullAddr) return '';
       const parts = fullAddr.split(',').map(s => s.trim()).filter(Boolean);
       return parts.length > 0 ? parts[0] : '';
     }
 
-    // Tự động bóc tách mã QR CCCD & Khóa mờ các trường cố định
+    // 5. Phân tách chuỗi QR CCCD & Khóa mờ trường dữ liệu
     function parseQRCode(text) {
       if (!text || !text.includes('|')) return false;
       const parts = text.split('|');
       if (parts.length >= 6) {
         const cccdNum = parts[0].trim();
         
-        // 1. Điền & Khóa mờ CCCD
+        // Điền & Khóa CCCD
         cccdInput.value = cccdNum;
         cccdInput.readOnly = true;
         cccdInput.classList.add('locked');
 
-        // 2. Điền & Khóa mờ Họ và tên
+        // Điền & Khóa Họ Tên
         hoTenInput.value = parts[2].trim();
         hoTenInput.readOnly = true;
         hoTenInput.classList.add('locked');
         
-        // 3. Cắt ngắn địa chỉ
+        // Cắt gọn địa chỉ
         const fullAddr = parts[5].trim();
         document.getElementById('diaChi').value = cleanShortAddress(fullAddr);
 
-        // 4. Tra cứu mã BHXH (sẽ tự khóa nếu tìm thấy)
+        // Tra cứu mã BHXH
         lookupBhxh(cccdNum);
 
-        // 5. Khớp xã tự động
-        if (danhMucXa && danhMucXa.length > 0) {
-          const matched = danhMucXa.find(x => fullAddr.toLowerCase().includes(x.ten.toLowerCase()));
-          if (matched) document.getElementById('xaCode').value = matched.maphuongxa;
+        // Tự động chọn đúng Xã/Phường từ QR CCCD
+        const matched = DANH_MUC_XA.find(x => fullAddr.toLowerCase().includes(x.ten.replace(/^Xã\s+|^Phường\s+/i, '').toLowerCase()));
+        if (matched) {
+          document.getElementById('xaCode').value = matched.maphuongxa;
         }
 
         showMsg('✅ Đã nhận diện CCCD (Đã khóa trường cố định)!', 'ok');
         if (navigator.vibrate) navigator.vibrate(200);
 
-        // Tắt Camera sau khi quét thành công
+        // Tắt camera ngay sau khi quét
         stopCamera();
         return true;
       }
@@ -291,7 +303,7 @@
     btnReopen.addEventListener('click', startCamera);
     window.addEventListener('DOMContentLoaded', startCamera);
 
-    // Gửi dữ liệu về Google Sheet
+    // 6. Gửi dữ liệu về Google Sheet
     document.getElementById('recordForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const btn = document.getElementById('btnSubmit');
@@ -320,12 +332,11 @@
         btn.textContent = 'Lưu vào hàng đợi';
         showMsg('🎉 Đã thêm hồ sơ vào Google Sheet thành công!', 'ok');
         
-        // Reset form và mở khóa lại cho lượt quét sau
         document.getElementById('recordForm').reset();
         resetFieldLocks();
         document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
 
-        // Bật lại Camera
+        // Mở lại Camera cho lượt tiếp theo
         startCamera();
       })
       .catch(err => {
