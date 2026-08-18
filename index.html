@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quét Tự Động QR CCCD</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #f0f2f5; padding: 10px; display: flex; justify-content: center; }
+    .card { background: #fff; width: 100%; max-width: 480px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 14px; }
+    h2 { font-size: 16px; color: #0d47a1; text-align: center; margin-bottom: 10px; font-weight: 700; }
+    .scanner-wrap { position: relative; width: 100%; height: 230px; background: #000; border-radius: 10px; overflow: hidden; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; }
+    #video { width: 100%; height: 100%; object-fit: cover; }
+    .scan-guide { position: absolute; width: 160px; height: 160px; border: 2.5px solid #00e676; border-radius: 10px; box-shadow: 0 0 0 4000px rgba(0,0,0,0.45); pointer-events: none; }
+    .scan-laser { width: 100%; height: 2px; background: #00e676; position: absolute; top: 0; box-shadow: 0 0 4px #00e676; animation: scanAnim 1.8s infinite ease-in-out; }
+    @keyframes scanAnim { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+    .cam-status { position: absolute; bottom: 6px; color: #fff; font-size: 11px; background: rgba(0,0,0,0.7); padding: 3px 10px; border-radius: 12px; }
+    .form-group { margin-bottom: 8px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #333; margin-bottom: 2px; }
+    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; outline: none; }
+    .row { display: flex; gap: 8px; }
+    .row .form-group { flex: 1; }
+    .hint { font-size: 11px; color: #666; margin-top: 2px; }
+    .btn-submit { width: 100%; padding: 12px; background: #2e7d32; color: #fff; border: none; border-radius: 6px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+    .btn-submit:disabled { opacity: 0.6; }
+    #msgBox { margin-top: 8px; padding: 8px; border-radius: 6px; font-size: 13px; text-align: center; display: none; }
+    .msg-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .msg-err { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>⚡ Quét Tự Động QR CCCD &rarr; Sheet</h2>
+    <div class="scanner-wrap">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="scan-guide"><div class="scan-laser"></div></div>
+      <div class="cam-status" id="camStatus">Đang bật camera sau...</div>
+    </div>
+
+    <form id="recordForm" autocomplete="off">
+      <div class="row">
+        <div class="form-group">
+          <label>Số CCCD *</label>
+          <input type="text" id="cccd" required placeholder="079...">
+        </div>
+        <div class="form-group">
+          <label>Mã số BHXH *</label>
+          <input type="text" id="maBhxh" required placeholder="8411...">
+          <div class="hint" id="bhxhHint">Tự động tra cứu từ Sheet</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Họ và tên *</label>
+        <input type="text" id="hoTen" required placeholder="NGUYEN VAN A">
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Tỉnh/Thành</label>
+          <input type="text" id="tinhName" value="[86] Vĩnh Long" readonly style="background:#eef2f6;color:#555;font-weight:600">
+        </div>
+        <div class="form-group">
+          <label>Xã/Phường *</label>
+          <select id="xaCode" required><option value="">-- Đang tải danh sách --</option></select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Số nhà, đường, ấp *</label>
+        <input type="text" id="diaChi" required placeholder="Số nhà, khóm/ấp...">
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Số điện thoại *</label>
+          <input type="tel" id="phone" required placeholder="0901234567">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="email" placeholder="example@gmail.com">
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit" id="btnSubmit">Lưu vào hàng đợi</button>
+    </form>
+    <div id="msgBox"></div>
+  </div>
+
+  <canvas id="qrCanvas" style="display:none;"></canvas>
+
+  <script>
+    // === DÁN LINK GOOGLE APPS SCRIPT WEB APP Ở ĐÂY ===
+    const SCRIPT_URL = "DÁN_APPS_SCRIPT_WEB_APP_URL_CỦA_BẠN_VÀO_ĐÂY";
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('qrCanvas');
+    const ctx = canvas.getContext('2d');
+    const camStatus = document.getElementById('camStatus');
+    let isScanning = true;
+    let danhMucXa = [];
+
+    fetch(SCRIPT_URL + '?action=getXaList').then(r => r.json()).then(j => {
+      if (j.status === 'success' && j.data) {
+        danhMucXa = j.data;
+        const sel = document.getElementById('xaCode');
+        sel.innerHTML = '<option value="">-- Chọn Xã/Phường --</option>';
+        danhMucXa.forEach(x => {
+          const opt = document.createElement('option');
+          opt.value = x.maphuongxa; opt.textContent = `${x.ten} [${x.maphuongxa}]`;
+          sel.appendChild(opt);
+        });
+      }
+    });
+
+    async function lookupBhxh(cccd) {
+      const hint = document.getElementById('bhxhHint');
+      hint.textContent = 'Đang tìm mã BHXH...';
+      try {
+        const res = await fetch(SCRIPT_URL + '?action=lookupBhxh&cccd=' + encodeURIComponent(cccd));
+        const json = await res.json();
+        if (json.status === 'success' && json.maBhxh) {
+          document.getElementById('maBhxh').value = json.maBhxh;
+          hint.textContent = '✅ Đã tìm thấy mã BHXH'; hint.style.color = '#2e7d32';
+        } else {
+          document.getElementById('maBhxh').value = '';
+          hint.textContent = '⚠️ Chưa có mã BHXH (Nhập tay)'; hint.style.color = '#d32f2f';
+        }
+      } catch(e) { hint.textContent = 'Lỗi tra cứu'; }
+    }
+
+    document.getElementById('cccd').addEventListener('blur', function() {
+      const c = this.value.trim();
+      if (c.length >= 9) lookupBhxh(c);
+    });
+
+    function parseQRCode(text) {
+      if (!text || !text.includes('|')) return false;
+      const parts = text.split('|');
+      if (parts.length >= 6) {
+        const cccdNum = parts[0].trim();
+        document.getElementById('cccd').value = cccdNum;
+        document.getElementById('hoTen').value = parts[2].trim();
+        const fullAddr = parts[5].trim();
+        document.getElementById('diaChi').value = fullAddr;
+        lookupBhxh(cccdNum);
+        if (danhMucXa && danhMucXa.length > 0) {
+          const matched = danhMucXa.find(x => fullAddr.toLowerCase().includes(x.ten.toLowerCase()));
+          if (matched) document.getElementById('xaCode').value = matched.maphuongxa;
+        }
+        showMsg('✅ Đã nhận diện & điền dữ liệu CCCD!', 'ok');
+        if (navigator.vibrate) navigator.vibrate(200);
+        return true;
+      }
+      return false;
+    }
+
+    function scanFrame() {
+      if (!isScanning) return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+        if (code && code.data && parseQRCode(code.data)) {
+          camStatus.textContent = '✅ Đã quét xong!';
+          isScanning = false;
+          setTimeout(() => { isScanning = true; camStatus.textContent = 'Hướng mã QR vào khung ngắm'; requestAnimationFrame(scanFrame); }, 2500);
+          return;
+        }
+      }
+      requestAnimationFrame(scanFrame);
+    }
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true);
+        await video.play();
+        camStatus.textContent = 'Hướng mã QR vào khung ngắm';
+        requestAnimationFrame(scanFrame);
+      } catch (e) {
+        camStatus.textContent = '❌ Lỗi: ' + e.message;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', startCamera);
+
+    document.getElementById('recordForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true; btn.textContent = 'Đang lưu vào Sheet...';
+
+      const payload = {
+        action: 'addRecord',
+        cccd: document.getElementById('cccd').value.trim(),
+        maBhxh: document.getElementById('maBhxh').value.trim(),
+        hoTen: document.getElementById('hoTen').value.trim(),
+        tinhCode: '86',
+        xaCode: document.getElementById('xaCode').value,
+        diaChi: document.getElementById('diaChi').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        email: document.getElementById('email').value.trim()
+      };
+
+      fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+        .then(r => r.json()).then(r => {
+          btn.disabled = false; btn.textContent = 'Lưu vào hàng đợi';
+          showMsg('🎉 Đã thêm hồ sơ vào Google Sheet thành công!', 'ok');
+          document.getElementById('recordForm').reset();
+          document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
+        })
+        .catch(err => {
+          btn.disabled = false; btn.textContent = 'Lưu vào hàng đợi';
+          showMsg('Lỗi khi gửi: ' + err, 'err');
+        });
+    });
+
+    function showMsg(t, type) {
+      const b = document.getElementById('msgBox');
+      b.textContent = t; b.className = type === 'ok' ? 'msg-ok' : 'msg-err';
+      b.style.display = 'block'; setTimeout(() => b.style.display = 'none', 4000);
+    }
+  </script>
+</body>
+</html>
