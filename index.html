@@ -68,7 +68,7 @@
       <div class="row">
         <div class="form-group">
           <label>Số CCCD *</label>
-          <input type="text" id="cccd" required placeholder="079..." pattern="\d*">
+          <input type="text" id="cccd" required placeholder="084..." pattern="\d*">
         </div>
         <div class="form-group">
           <label>Mã số BHXH *</label>
@@ -107,7 +107,6 @@
         </div>
         <div class="form-group">
           <label>Email *</label>
-          <!-- Thêm required để bắt buộc nhập -->
           <input type="email" id="email" required placeholder="example@gmail.com">
         </div>
       </div>
@@ -120,10 +119,8 @@
   <canvas id="qrCanvas" style="display:none;"></canvas>
 
   <script>
-    // === DÁN LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY ===
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5VIF-hm4iTkWIO1aOzU_XDsosCIBU1VlUuYsYUixEUJ6ifoSwEtsb1BEyM0FXfNJYkQ/exec";
 
-    // DANH MỤC XÃ TẢI TỨC THÌ (KHÔNG CẦN CHỜ MẠNG)
     const DANH_MUC_XA = [
       {"ten": "Xã Cầu Ngang", "matinh": "86", "maphuongxa": "29416"},
       {"ten": "Xã Mỹ Long", "matinh": "86", "maphuongxa": "29419"},
@@ -140,7 +137,9 @@
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('qrCanvas');
-    const ctx = canvas.getContext('2d');
+    // Tối ưu hóa đọc dữ liệu canvas bằng willReadFrequently
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
     const camStatus = document.getElementById('camStatus');
     const scanGuide = document.getElementById('scanGuide');
     const camClosedBox = document.getElementById('camClosedBox');
@@ -153,7 +152,6 @@
     let isScanning = true;
     let streamTrack = null;
 
-    // 1. Tải danh mục xã vào dropdown ngay khi mở trang
     function loadXaList() {
       const sel = document.getElementById('xaCode');
       sel.innerHTML = '<option value="">-- Chọn Xã/Phường --</option>';
@@ -166,7 +164,6 @@
     }
     loadXaList();
 
-    // 2. Mở khóa lại các trường
     function resetFieldLocks() {
       [cccdInput, hoTenInput, maBhxhInput].forEach(inp => {
         inp.readOnly = false;
@@ -174,7 +171,6 @@
       });
     }
 
-    // 3. Tra cứu mã BHXH từ Google Sheet & Tự động khóa nếu tìm thấy
     async function lookupBhxh(cccd) {
       const hint = document.getElementById('bhxhHint');
       hint.textContent = 'Đang tìm mã BHXH...';
@@ -206,43 +202,35 @@
       if (c.length >= 9) lookupBhxh(c);
     });
 
-    // Cấm nhập chữ cái vào ô Số điện thoại (Chỉ cho phép số)
     document.getElementById('phone').addEventListener('input', function(e) {
       this.value = this.value.replace(/[^0-9]/g, '');
     });
 
-    // 4. Cắt gọn địa chỉ (chỉ lấy phần đầu: Ấp/Số nhà)
     function cleanShortAddress(fullAddr) {
       if (!fullAddr) return '';
       const parts = fullAddr.split(',').map(s => s.trim()).filter(Boolean);
       return parts.length > 0 ? parts[0] : '';
     }
 
-    // 5. Phân tách chuỗi QR CCCD & Khóa mờ trường dữ liệu
     function parseQRCode(text) {
       if (!text || !text.includes('|')) return false;
       const parts = text.split('|');
       if (parts.length >= 6) {
         const cccdNum = parts[0].trim();
         
-        // Điền & Khóa CCCD
         cccdInput.value = cccdNum;
         cccdInput.readOnly = true;
         cccdInput.classList.add('locked');
 
-        // Điền & Khóa Họ Tên
         hoTenInput.value = parts[2].trim();
         hoTenInput.readOnly = true;
         hoTenInput.classList.add('locked');
         
-        // Cắt gọn địa chỉ
         const fullAddr = parts[5].trim();
         document.getElementById('diaChi').value = cleanShortAddress(fullAddr);
 
-        // Tra cứu mã BHXH
         lookupBhxh(cccdNum);
 
-        // Tự động chọn đúng Xã/Phường từ QR CCCD
         const matched = DANH_MUC_XA.find(x => fullAddr.toLowerCase().includes(x.ten.replace(/^Xã\s+|^Phường\s+/i, '').toLowerCase()));
         if (matched) {
           document.getElementById('xaCode').value = matched.maphuongxa;
@@ -251,7 +239,6 @@
         showMsg('✅ Đã nhận diện CCCD (Đã khóa trường cố định)!', 'ok');
         if (navigator.vibrate) navigator.vibrate(200);
 
-        // Tắt camera ngay sau khi quét
         stopCamera();
         return true;
       }
@@ -275,6 +262,9 @@
 
     function stopCamera() {
       isScanning = false;
+      // Dọn dẹp bộ đếm giờ focus khi tắt camera
+      if (window.focusTimeout) clearTimeout(window.focusTimeout);
+      
       if (streamTrack) {
         streamTrack.getTracks().forEach(t => t.stop());
         streamTrack = null;
@@ -290,30 +280,63 @@
       scanGuide.style.display = 'block';
       camStatus.style.display = 'block';
       camClosedBox.style.display = 'none';
-      camStatus.textContent = 'Hướng mã QR vào khung ngắm';
+      camStatus.textContent = 'Đang kết nối ống kính...';
+
+      // Xây dựng các kịch bản tương thích ngược từ cấu hình cao xuống thấp
+      const constraintsFallback = [
+        // 1. Tối ưu nhất: Camera sau, HD, tự động lấy nét liên tục
+        { video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: "continuous" }] } },
+        // 2. Dự phòng 1: Bỏ yêu cầu bắt buộc "exact" để tránh văng lỗi trên Android cũ
+        { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } },
+        // 3. Dự phòng 2: Trình duyệt tự cấu hình độ phân giải phù hợp nhất
+        { video: { facingMode: "environment" } },
+        // 4. Mức cơ bản nhất
+        { video: true }
+      ];
+
+      for (const constraint of constraintsFallback) {
+        try {
+          streamTrack = await navigator.mediaDevices.getUserMedia(constraint);
+          break; // Thành công ở cấu hình nào thì dùng cấu hình đó
+        } catch (err) {
+          console.warn("Chuyển cấu hình camera dự phòng...", err);
+        }
+      }
+
+      if (!streamTrack) {
+        camStatus.textContent = '❌ Lỗi: Vui lòng cấp quyền Camera trong cài đặt!';
+        return;
+      }
 
       try {
-        streamTrack = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
         video.srcObject = streamTrack;
-        video.setAttribute("playsinline", true);
+        video.setAttribute("playsinline", true); // Đặc biệt quan trọng cho các thiết bị iOS
         await video.play();
         isScanning = true;
+        camStatus.textContent = 'Hướng mã QR vào khung ngắm';
         requestAnimationFrame(scanFrame);
+
+        // Kỹ thuật khởi động lại luồng quét sau 8 giây nếu quá giới hạn chờ tra cứu để khôi phục lấy nét
+        if (window.focusTimeout) clearTimeout(window.focusTimeout);
+        window.focusTimeout = setTimeout(() => {
+          if (isScanning) {
+            camStatus.textContent = 'Đang tự lấy nét lại...';
+            stopCamera();
+            setTimeout(startCamera, 300);
+          }
+        }, 8000); 
+
       } catch (e) {
-        camStatus.textContent = '❌ Lỗi: ' + e.message;
+        camStatus.textContent = '❌ Lỗi phát hình: ' + e.message;
       }
     }
 
     btnReopen.addEventListener('click', startCamera);
     window.addEventListener('DOMContentLoaded', startCamera);
 
-    // 6. Gửi dữ liệu về Google Sheet
     document.getElementById('recordForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
-      // KIỂM TRA SỐ ĐIỆN THOẠI
       const phoneVal = document.getElementById('phone').value.trim();
       if (!/^\d{10}$/.test(phoneVal)) {
         showMsg('❌ Số điện thoại phải gồm đúng 10 chữ số!', 'err');
@@ -321,7 +344,6 @@
         return;
       }
 
-      // KIỂM TRA ĐỊNH DẠNG EMAIL (BẮT BUỘC)
       const emailVal = document.getElementById('email').value.trim();
       if (emailVal === "") {
         showMsg('❌ Vui lòng nhập địa chỉ Email!', 'err');
@@ -366,7 +388,6 @@
         resetFieldLocks();
         document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
 
-        // Mở lại Camera cho lượt tiếp theo
         startCamera();
       })
       .catch(err => {
