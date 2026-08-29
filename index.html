@@ -6,60 +6,222 @@
   <title>Quét Tự Động QR CCCD</title>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #f0f2f5; padding: 10px; display: flex; justify-content: center; }
-    .card { background: #fff; width: 100%; max-width: 480px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 14px; }
-    h2 { font-size: 16px; color: #0d47a1; text-align: center; margin-bottom: 10px; font-weight: 700; }
-    
-    .scanner-wrap { 
-      position: relative; width: 100%; height: 210px; background: #111; 
-      border-radius: 10px; overflow: hidden; margin-bottom: 10px; 
-      display: flex; align-items: center; justify-content: center; 
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --pri: #0d47a1; --pri-l: #42a5f5; --pri-bg: #e3f2fd;
+      --ok: #2e7d32; --ok-bg: #e8f5e9;
+      --err: #c62828; --err-bg: #ffebee;
+      --bg: #f4f6f9; --card: #ffffff;
+      --txt: #1a1a2e; --txt2: #5f6368; --txt3: #9aa0a6;
+      --bdr: #e0e3e8; --bdr2: #c4c9d0;
+      --r: 12px; --rs: 8px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.06);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,.08);
     }
-    #video { width: 100%; height: 100%; object-fit: cover; }
-    .scan-guide { position: absolute; width: 150px; height: 150px; border: 2px solid #00e676; border-radius: 10px; box-shadow: 0 0 0 4000px rgba(0,0,0,0.45); pointer-events: none; }
-    .scan-laser { width: 100%; height: 2px; background: #00e676; position: absolute; top: 0; box-shadow: 0 0 4px #00e676; animation: scanAnim 1.8s infinite ease-in-out; }
-    @keyframes scanAnim { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+    body { background: var(--bg); padding: 12px; display: flex; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: var(--txt); }
     
-    .cam-status { position: absolute; bottom: 6px; color: #fff; font-size: 11px; background: rgba(0,0,0,0.7); padding: 3px 10px; border-radius: 12px; }
-    .cam-closed-box { display: none; text-align: center; color: #fff; padding: 20px; }
-    .btn-reopen { background: #1565c0; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+    .card {
+      background: var(--card); width: 100%; max-width: 480px;
+      border-radius: var(--r); padding: 16px;
+      box-shadow: var(--shadow-md);
+      transition: box-shadow .35s cubic-bezier(.4,0,.2,1);
+    }
+    .card:hover { box-shadow: var(--shadow-lg); }
+    h2 {
+      font-size: 15px; color: var(--pri); text-align: center;
+      margin-bottom: 12px; font-weight: 700; letter-spacing: -.2px;
+    }
 
-    .form-group { margin-bottom: 8px; }
-    label { display: block; font-size: 12px; font-weight: 600; color: #333; margin-bottom: 2px; }
-    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; outline: none; transition: background 0.2s, border-color 0.2s; }
-    
-    /* Giao diện khóa mờ chống nhập */
+    /* ─── Scanner ─── */
+    .scanner-wrap {
+      position: relative; width: 100%; height: 220px;
+      background: #0a0a0a; border-radius: var(--r);
+      overflow: hidden; margin-bottom: 12px;
+      box-shadow: inset 0 0 30px rgba(0,0,0,.3);
+    }
+    #video { width: 100%; height: 100%; object-fit: cover; transition: opacity .3s; }
+    .scan-guide {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 160px; height: 160px;
+      border: 2px solid rgba(66,165,245,.35);
+      border-radius: 14px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.5);
+      pointer-events: none;
+      transition: border-color .3s;
+    }
+    .scan-guide.detected {
+      border-color: rgba(76,175,80,.8);
+      box-shadow: 0 0 20px rgba(76,175,80,.15), 0 0 0 9999px rgba(0,0,0,.5);
+    }
+    .scan-guide::before, .scan-guide::after,
+    .scan-bl, .scan-br {
+      position: absolute; width: 24px; height: 24px;
+      border-color: var(--pri-l); border-style: solid;
+      transition: border-color .3s, transform .3s;
+    }
+    .scan-guide::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-radius: 6px 0 0 0; }
+    .scan-guide::after  { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-radius: 0 6px 0 0; }
+    .scan-bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-radius: 0 0 0 6px; }
+    .scan-br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-radius: 0 0 6px 0; }
+    .scan-guide.detected::before { border-color: #4caf50; transform: scale(1.15); }
+    .scan-guide.detected::after  { border-color: #4caf50; transform: scale(1.15); }
+    .scan-guide.detected .scan-bl  { border-color: #4caf50; transform: scale(1.15); }
+    .scan-guide.detected .scan-br  { border-color: #4caf50; transform: scale(1.15); }
+
+    .scan-laser {
+      width: 85%; height: 2px; left: 7.5%;
+      background: linear-gradient(90deg, transparent 0%, var(--pri-l) 40%, var(--pri-l) 60%, transparent 100%);
+      position: absolute; top: 0;
+      box-shadow: 0 0 8px var(--pri-l), 0 0 24px rgba(66,165,245,.2);
+      animation: scanY 2.2s cubic-bezier(.42,0,.58,1) infinite;
+      border-radius: 2px;
+      transition: background .3s, box-shadow .3s;
+    }
+    .scan-laser.success {
+      background: linear-gradient(90deg, transparent 0%, #4caf50 40%, #4caf50 60%, transparent 100%);
+      box-shadow: 0 0 12px #4caf50, 0 0 30px rgba(76,175,80,.3);
+    }
+    @keyframes scanY { 0%,100% { top: 6px; } 50% { top: calc(100% - 8px); } }
+
+    .cam-status {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: 11px; font-weight: 500;
+      background: rgba(0,0,0,.6); padding: 4px 14px;
+      border-radius: 20px; backdrop-filter: blur(6px);
+      white-space: nowrap;
+      transition: background .3s, transform .3s;
+    }
+    .cam-status.pulse { animation: statusPulse 1.5s ease infinite; }
+    @keyframes statusPulse {
+      0%,100% { background: rgba(0,0,0,.6); }
+      50% { background: rgba(66,165,245,.35); }
+    }
+
+    .cam-closed-box {
+      display: none; position: absolute; inset: 0;
+      background: rgba(10,10,10,.88); backdrop-filter: blur(8px);
+      flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+      animation: fadeOverlay .35s ease;
+    }
+    @keyframes fadeOverlay { from { opacity: 0; } to { opacity: 1; } }
+    .cam-closed-box .done-icon {
+      font-size: 44px;
+      animation: popIn .4s cubic-bezier(.175,.885,.32,1.275);
+    }
+    @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .cam-closed-box .done-text { color: #fff; font-size: 13px; font-weight: 600; animation: fadeUp .4s ease .1s both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .btn-reopen {
+      background: var(--pri); color: #fff; border: none;
+      padding: 10px 24px; border-radius: 24px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(13,71,161,.35);
+      transition: transform .2s cubic-bezier(.4,0,.2,1), box-shadow .2s, background .2s;
+      animation: fadeUp .4s ease .2s both;
+      position: relative; overflow: hidden;
+    }
+    .btn-reopen::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.15) 50%, transparent 60%);
+      transform: translateX(-100%);
+      transition: transform .5s;
+    }
+    .btn-reopen:hover::after { transform: translateX(100%); }
+    .btn-reopen:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 20px rgba(13,71,161,.4); }
+    .btn-reopen:active { transform: scale(.97); box-shadow: 0 2px 8px rgba(13,71,161,.3); transition-duration: .08s; }
+
+    /* ─── Form ─── */
+    .form-group { margin-bottom: 10px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--txt2); margin-bottom: 3px; transition: color .2s; }
+    .form-group:focus-within label { color: var(--pri); }
+    input, select {
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid var(--bdr); border-radius: var(--rs);
+      font-size: 14px; color: var(--txt); background: #fff;
+      outline: none;
+      transition: border-color .25s, box-shadow .25s, background .25s;
+    }
+    input:focus, select:focus {
+      border-color: var(--pri-l);
+      box-shadow: 0 0 0 3px rgba(66,165,245,.1), 0 1px 4px rgba(66,165,245,.08);
+    }
+    input::placeholder { color: var(--txt3); transition: color .2s; }
+    input:focus::placeholder { color: var(--pri-l); opacity: .5; }
     input.locked {
-      background-color: #e9ecef !important;
-      color: #495057 !important;
-      border-color: #ced4da !important;
-      cursor: not-allowed;
-      font-weight: 600;
+      background: var(--pri-bg) !important; color: var(--pri) !important;
+      border-color: #90caf9 !important; font-weight: 600; cursor: default;
+      box-shadow: none !important;
     }
-
-    .row { display: flex; gap: 8px; }
+    input.locked:focus { box-shadow: none !important; }
+    select { cursor: pointer; transition: border-color .25s, box-shadow .25s; }
+    select:hover { border-color: var(--bdr2); }
+    .row { display: flex; gap: 10px; }
     .row .form-group { flex: 1; }
-    .hint { font-size: 11px; color: #666; margin-top: 2px; }
-    .btn-submit { width: 100%; padding: 12px; background: #2e7d32; color: #fff; border: none; border-radius: 6px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 6px; }
-    .btn-submit:disabled { opacity: 0.6; }
-    #msgBox { margin-top: 8px; padding: 8px; border-radius: 6px; font-size: 13px; text-align: center; display: none; }
-    .msg-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-    .msg-err { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+    .hint { font-size: 11px; margin-top: 2px; color: var(--txt3); transition: color .25s; }
+
+    .btn-submit {
+      width: 100%; padding: 13px; background: var(--ok); color: #fff;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 8px;
+      box-shadow: 0 2px 8px rgba(46,125,50,.25);
+      transition: transform .2s cubic-bezier(.4,0,.2,1), box-shadow .2s, opacity .2s, background .2s;
+      position: relative; overflow: hidden;
+    }
+    .btn-submit::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.12) 50%, transparent 60%);
+      transform: translateX(-120%);
+      transition: transform .6s;
+    }
+    .btn-submit:hover::before { transform: translateX(120%); }
+    .btn-submit:hover {
+      box-shadow: 0 4px 16px rgba(46,125,50,.35);
+      transform: translateY(-2px);
+      background: #388e3c;
+    }
+    .btn-submit:active {
+      transform: translateY(0) scale(.98);
+      box-shadow: 0 2px 6px rgba(46,125,50,.25);
+      transition-duration: .08s;
+    }
+    .btn-submit:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
+    .btn-submit:disabled::before { display: none; }
+
+    #msgBox {
+      margin-top: 10px; padding: 10px 14px; border-radius: var(--rs);
+      font-size: 13px; text-align: center; display: none;
+      font-weight: 500; transform-origin: top center;
+    }
+    .msg-ok { background: var(--ok-bg); color: var(--ok); border: 1px solid #a5d6a7; animation: msgIn .3s cubic-bezier(.175,.885,.32,1.275); }
+    .msg-err { background: var(--err-bg); color: var(--err); border: 1px solid #ef9a9a; animation: msgIn .3s cubic-bezier(.175,.885,.32,1.275); }
+    @keyframes msgIn { from { opacity: 0; transform: scale(.92) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+    /* ─── Focus ring animation cho locked fields ─── */
+    input.locked:focus { animation: lockPulse .5s ease; }
+    @keyframes lockPulse {
+      0% { box-shadow: 0 0 0 0 rgba(13,71,161,0); }
+      50% { box-shadow: 0 0 0 4px rgba(13,71,161,.1); }
+      100% { box-shadow: 0 0 0 0 rgba(13,71,161,0); }
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>⚡ Quét Tự Động QR CCCD &rarr; Sheet</h2>
+    <h2>⚡ Quét Tự Động QR CCCD → Sheet</h2>
 
-    <!-- KHUNG LIVE CAMERA -->
     <div class="scanner-wrap" id="scannerWrap">
       <video id="video" playsinline muted autoplay></video>
-      <div class="scan-guide" id="scanGuide"><div class="scan-laser"></div></div>
-      <div class="cam-status" id="camStatus">Đang bật camera sau...</div>
-      
+      <div class="scan-guide" id="scanGuide">
+        <div class="scan-bl"></div><div class="scan-br"></div>
+        <div class="scan-laser" id="scanLaser"></div>
+      </div>
+      <div class="cam-status" id="camStatus">Đang kết nối camera sau...</div>
       <div class="cam-closed-box" id="camClosedBox">
-        <div style="font-size:13px;margin-bottom:6px">✅ Đã quét xong hồ sơ</div>
+        <div class="done-icon">✅</div>
+        <div class="done-text">Đã quét xong hồ sơ</div>
         <button type="button" class="btn-reopen" id="btnReopen">📷 Quét hồ sơ tiếp theo</button>
       </div>
     </div>
@@ -68,11 +230,11 @@
       <div class="row">
         <div class="form-group">
           <label>Số CCCD *</label>
-          <input type="text" id="cccd" required placeholder="084..." pattern="\d*">
+          <input type="text" id="cccd" required placeholder="084..." inputmode="numeric" pattern="\d*">
         </div>
         <div class="form-group">
           <label>Mã số BHXH *</label>
-          <input type="text" id="maBhxh" required placeholder="8411..." pattern="\d*">
+          <input type="text" id="maBhxh" required placeholder="8411..." inputmode="numeric" pattern="\d*">
           <div class="hint" id="bhxhHint">Tự động tra cứu từ Sheet</div>
         </div>
       </div>
@@ -96,18 +258,18 @@
       </div>
 
       <div class="form-group">
-        <label>Số nhà, ngõ, đường, ấp*</label>
+        <label>Số nhà, ngõ, đường, ấp *</label>
         <input type="text" id="diaChi" required placeholder="Ấp Bến Thế...">
       </div>
 
       <div class="row">
         <div class="form-group">
           <label>Số điện thoại *</label>
-          <input type="tel" id="phone" required placeholder="0901234567" pattern="[0-9]{10}" minlength="10" maxlength="10" title="Vui lòng nhập đúng 10 chữ số">
+          <input type="tel" id="phone" required placeholder="0901234567" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" title="Nhập đúng 10 chữ số">
         </div>
         <div class="form-group">
           <label>Email *</label>
-          <input type="email" id="email" required placeholder="example@gmail.com">
+          <input type="email" id="email" required placeholder="example@gmail.com" inputmode="email">
         </div>
       </div>
 
@@ -137,43 +299,45 @@
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('qrCanvas');
-    // Tối ưu hóa đọc dữ liệu canvas bằng willReadFrequently
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    
     const camStatus = document.getElementById('camStatus');
     const scanGuide = document.getElementById('scanGuide');
+    const scanLaser = document.getElementById('scanLaser');
     const camClosedBox = document.getElementById('camClosedBox');
     const btnReopen = document.getElementById('btnReopen');
-
     const cccdInput = document.getElementById('cccd');
     const hoTenInput = document.getElementById('hoTen');
     const maBhxhInput = document.getElementById('maBhxh');
 
-    let isScanning = true;
-    let streamTrack = null;
+    let isScanning = false;
+    let streamRef = null;
+    let focusTimer = null;
 
     function loadXaList() {
       const sel = document.getElementById('xaCode');
       sel.innerHTML = '<option value="">-- Chọn Xã/Phường --</option>';
       DANH_MUC_XA.forEach(x => {
-        const opt = document.createElement('option');
-        opt.value = x.maphuongxa; 
-        opt.textContent = `${x.ten} [${x.maphuongxa}]`;
-        sel.appendChild(opt);
+        const o = document.createElement('option');
+        o.value = x.maphuongxa;
+        o.textContent = x.ten + ' [' + x.maphuongxa + ']';
+        sel.appendChild(o);
       });
     }
     loadXaList();
 
     function resetFieldLocks() {
-      [cccdInput, hoTenInput, maBhxhInput].forEach(inp => {
-        inp.readOnly = false;
-        inp.classList.remove('locked');
+      [cccdInput, hoTenInput, maBhxhInput].forEach(i => {
+        i.readOnly = false;
+        i.classList.remove('locked');
       });
+      document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
+      document.getElementById('bhxhHint').style.color = '';
     }
 
     async function lookupBhxh(cccd) {
       const hint = document.getElementById('bhxhHint');
       hint.textContent = 'Đang tìm mã BHXH...';
+      hint.style.color = '';
       try {
         const res = await fetch(SCRIPT_URL + '?action=lookupBhxh&cccd=' + encodeURIComponent(cccd));
         const json = await res.json();
@@ -181,98 +345,94 @@
           maBhxhInput.value = json.maBhxh;
           maBhxhInput.readOnly = true;
           maBhxhInput.classList.add('locked');
-          hint.textContent = '✅ Đã tìm thấy mã BHXH (Đã khóa)';
-          hint.style.color = '#2e7d32';
+          hint.textContent = '✅ Đã tìm thấy mã BHXH';
+          hint.style.color = 'var(--ok)';
         } else {
           maBhxhInput.value = '';
           maBhxhInput.readOnly = false;
           maBhxhInput.classList.remove('locked');
           hint.textContent = '⚠️ Chưa có mã BHXH (Nhập tay)';
-          hint.style.color = '#d32f2f';
+          hint.style.color = 'var(--err)';
         }
-      } catch(e) { 
-        hint.textContent = 'Nhập tay mã BHXH nếu có';
+      } catch(e) {
         maBhxhInput.readOnly = false;
         maBhxhInput.classList.remove('locked');
+        hint.textContent = 'Lỗi tìm kiếm — Nhập tay mã BHXH';
+        hint.style.color = 'var(--err)';
       }
     }
 
     document.getElementById('cccd').addEventListener('blur', function() {
-      const c = this.value.trim();
-      if (c.length >= 9) lookupBhxh(c);
+      if (this.value.trim().length >= 9) lookupBhxh(this.value.trim());
     });
 
-    document.getElementById('phone').addEventListener('input', function(e) {
+    document.getElementById('phone').addEventListener('input', function() {
       this.value = this.value.replace(/[^0-9]/g, '');
     });
 
-    function cleanShortAddress(fullAddr) {
-      if (!fullAddr) return '';
-      const parts = fullAddr.split(',').map(s => s.trim()).filter(Boolean);
-      return parts.length > 0 ? parts[0] : '';
+    function cleanShortAddress(addr) {
+      if (!addr) return '';
+      const parts = addr.split(',').map(s => s.trim()).filter(Boolean);
+      return parts[0] || '';
     }
 
     function parseQRCode(text) {
       if (!text || !text.includes('|')) return false;
-      const parts = text.split('|');
-      if (parts.length >= 6) {
-        const cccdNum = parts[0].trim();
-        
-        cccdInput.value = cccdNum;
-        cccdInput.readOnly = true;
-        cccdInput.classList.add('locked');
+      const p = text.split('|');
+      if (p.length < 6) return false;
 
-        hoTenInput.value = parts[2].trim();
-        hoTenInput.readOnly = true;
-        hoTenInput.classList.add('locked');
-        
-        const fullAddr = parts[5].trim();
-        document.getElementById('diaChi').value = cleanShortAddress(fullAddr);
+      cccdInput.value = p[0].trim();
+      cccdInput.readOnly = true;
+      cccdInput.classList.add('locked');
 
-        lookupBhxh(cccdNum);
+      hoTenInput.value = p[2].trim();
+      hoTenInput.readOnly = true;
+      hoTenInput.classList.add('locked');
 
-        const matched = DANH_MUC_XA.find(x => fullAddr.toLowerCase().includes(x.ten.replace(/^Xã\s+|^Phường\s+/i, '').toLowerCase()));
-        if (matched) {
-          document.getElementById('xaCode').value = matched.maphuongxa;
-        }
+      document.getElementById('diaChi').value = cleanShortAddress(p[5].trim());
+      lookupBhxh(p[0].trim());
 
-        showMsg('✅ Đã nhận diện CCCD (Đã khóa trường cố định)!', 'ok');
-        if (navigator.vibrate) navigator.vibrate(200);
+      const matched = DANH_MUC_XA.find(x =>
+        p[5].trim().toLowerCase().includes(x.ten.replace(/^Xã\s+|^Phường\s+/i, '').toLowerCase())
+      );
+      if (matched) document.getElementById('xaCode').value = matched.maphuongxa;
 
-        stopCamera();
-        return true;
-      }
-      return false;
+      /* Hiệu ứng khi nhận diện thành công */
+      scanGuide.classList.add('detected');
+      scanLaser.classList.add('success');
+      setTimeout(() => { scanGuide.classList.remove('detected'); scanLaser.classList.remove('success'); }, 1500);
+
+      showMsg('✅ Đã nhận diện CCCD (Đã khóa trường cố định)!', 'ok');
+      if (navigator.vibrate) navigator.vibrate(200);
+      stopCamera();
+      return true;
     }
 
     function scanFrame() {
       if (!isScanning) return;
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth; 
+        canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
-        if (code && code.data && parseQRCode(code.data)) {
-          return;
-        }
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
+        if (code && code.data && parseQRCode(code.data)) return;
       }
       requestAnimationFrame(scanFrame);
     }
 
     function stopCamera() {
       isScanning = false;
-      // Dọn dẹp bộ đếm giờ focus khi tắt camera
-      if (window.focusTimeout) clearTimeout(window.focusTimeout);
-      
-      if (streamTrack) {
-        streamTrack.getTracks().forEach(t => t.stop());
-        streamTrack = null;
+      if (focusTimer) { clearTimeout(focusTimer); focusTimer = null; }
+      if (streamRef) {
+        streamRef.getTracks().forEach(t => t.stop());
+        streamRef = null;
       }
+      video.srcObject = null;
       video.style.display = 'none';
       scanGuide.style.display = 'none';
       camStatus.style.display = 'none';
-      camClosedBox.style.display = 'block';
+      camClosedBox.style.display = 'flex';
     }
 
     async function startCamera() {
@@ -280,54 +440,53 @@
       scanGuide.style.display = 'block';
       camStatus.style.display = 'block';
       camClosedBox.style.display = 'none';
-      camStatus.textContent = 'Đang kết nối ống kính...';
+      camStatus.textContent = 'Đang kết nối camera sau...';
+      camStatus.classList.add('pulse');
 
-      // Xây dựng các kịch bản tương thích ngược từ cấu hình cao xuống thấp
-      const constraintsFallback = [
-        // 1. Tối ưu nhất: Camera sau, HD, tự động lấy nét liên tục
-        { video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: "continuous" }] } },
-        // 2. Dự phòng 1: Bỏ yêu cầu bắt buộc "exact" để tránh văng lỗi trên Android cũ
+      const chains = [
+        { video: { facingMode: { exact: "environment" }, width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 }, advanced: [{ focusMode: "continuous" }] } },
+        { video: { facingMode: { exact: "environment" }, width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 } } },
         { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } },
-        // 3. Dự phòng 2: Trình duyệt tự cấu hình độ phân giải phù hợp nhất
         { video: { facingMode: "environment" } },
-        // 4. Mức cơ bản nhất
         { video: true }
       ];
 
-      for (const constraint of constraintsFallback) {
+      for (const c of chains) {
         try {
-          streamTrack = await navigator.mediaDevices.getUserMedia(constraint);
-          break; // Thành công ở cấu hình nào thì dùng cấu hình đó
-        } catch (err) {
-          console.warn("Chuyển cấu hình camera dự phòng...", err);
+          streamRef = await navigator.mediaDevices.getUserMedia(c);
+          break;
+        } catch(e) {
+          console.warn('Camera fallback:', e.message || e.name);
         }
       }
 
-      if (!streamTrack) {
-        camStatus.textContent = '❌ Lỗi: Vui lòng cấp quyền Camera trong cài đặt!';
+      if (!streamRef) {
+        camStatus.classList.remove('pulse');
+        camStatus.textContent = '❌ Không mở được camera — kiểm tra quyền';
         return;
       }
 
       try {
-        video.srcObject = streamTrack;
-        video.setAttribute("playsinline", true); // Đặc biệt quan trọng cho các thiết bị iOS
+        video.srcObject = streamRef;
+        video.setAttribute('playsinline', '');
         await video.play();
         isScanning = true;
-        camStatus.textContent = 'Hướng mã QR vào khung ngắm';
+        camStatus.classList.remove('pulse');
+        camStatus.textContent = 'Hướng mặt sau CCCD vào khung';
         requestAnimationFrame(scanFrame);
 
-        // Kỹ thuật khởi động lại luồng quét sau 8 giây nếu quá giới hạn chờ tra cứu để khôi phục lấy nét
-        if (window.focusTimeout) clearTimeout(window.focusTimeout);
-        window.focusTimeout = setTimeout(() => {
-          if (isScanning) {
-            camStatus.textContent = 'Đang tự lấy nét lại...';
-            stopCamera();
-            setTimeout(startCamera, 300);
-          }
-        }, 8000); 
+        if (focusTimer) clearTimeout(focusTimer);
+        focusTimer = setTimeout(() => {
+          if (!isScanning) return;
+          camStatus.textContent = 'Đang lấy nét lại...';
+          camStatus.classList.add('pulse');
+          stopCamera();
+          setTimeout(startCamera, 400);
+        }, 10000);
 
-      } catch (e) {
-        camStatus.textContent = '❌ Lỗi phát hình: ' + e.message;
+      } catch(e) {
+        camStatus.classList.remove('pulse');
+        camStatus.textContent = '❌ Lỗi phát: ' + e.message;
       }
     }
 
@@ -339,59 +498,48 @@
 
       const phoneVal = document.getElementById('phone').value.trim();
       if (!/^\d{10}$/.test(phoneVal)) {
-        showMsg('❌ Số điện thoại phải gồm đúng 10 chữ số!', 'err');
+        showMsg('❌ Số điện thoại phải đúng 10 chữ số!', 'err');
         document.getElementById('phone').focus();
         return;
       }
 
       const emailVal = document.getElementById('email').value.trim();
-      if (emailVal === "") {
-        showMsg('❌ Vui lòng nhập địa chỉ Email!', 'err');
-        document.getElementById('email').focus();
-        return;
-      }
-      
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(emailVal)) {
-        showMsg('❌ Email không đúng định dạng (VD: example@gmail.com)!', 'err');
+      if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+        showMsg('❌ Email không đúng định dạng!', 'err');
         document.getElementById('email').focus();
         return;
       }
 
       const btn = document.getElementById('btnSubmit');
-      btn.disabled = true; 
+      btn.disabled = true;
       btn.textContent = 'Đang lưu vào Sheet...';
 
-      const payload = {
-        action: 'addRecord',
-        cccd: cccdInput.value.trim(),
-        maBhxh: maBhxhInput.value.trim(),
-        hoTen: hoTenInput.value.trim(),
-        tinhCode: '86',
-        xaCode: document.getElementById('xaCode').value,
-        diaChi: document.getElementById('diaChi').value.trim(),
-        phone: phoneVal,
-        email: emailVal
-      };
-
-      fetch(SCRIPT_URL, { 
-        method: 'POST', 
+      fetch(SCRIPT_URL, {
+        method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload) 
+        body: JSON.stringify({
+          action: 'addRecord',
+          cccd: cccdInput.value.trim(),
+          maBhxh: maBhxhInput.value.trim(),
+          hoTen: hoTenInput.value.trim(),
+          tinhCode: '86',
+          xaCode: document.getElementById('xaCode').value,
+          diaChi: document.getElementById('diaChi').value.trim(),
+          phone: phoneVal,
+          email: emailVal
+        })
       })
-      .then(r => r.json()).then(r => {
-        btn.disabled = false; 
+      .then(r => r.json())
+      .then(r => {
+        btn.disabled = false;
         btn.textContent = 'Lưu vào hàng đợi';
         showMsg('🎉 Đã thêm hồ sơ vào Google Sheet thành công!', 'ok');
-        
         document.getElementById('recordForm').reset();
         resetFieldLocks();
-        document.getElementById('bhxhHint').textContent = 'Tự động tra cứu từ Sheet';
-
         startCamera();
       })
       .catch(err => {
-        btn.disabled = false; 
+        btn.disabled = false;
         btn.textContent = 'Lưu vào hàng đợi';
         showMsg('Lỗi khi gửi: ' + err, 'err');
       });
@@ -399,9 +547,9 @@
 
     function showMsg(t, type) {
       const b = document.getElementById('msgBox');
-      b.textContent = t; 
-      b.className = type === 'ok' ? 'msg-ok' : 'msg-err';
-      b.style.display = 'block'; 
+      b.textContent = t;
+      b.className = (type === 'ok' ? 'msg-ok' : 'msg-err');
+      b.style.display = 'block';
       setTimeout(() => b.style.display = 'none', 4000);
     }
   </script>
