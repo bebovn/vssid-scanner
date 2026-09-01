@@ -18,6 +18,7 @@
       --shadow-sm: 0 1px 3px rgba(0,0,0,.04);
       --shadow-md: 0 4px 12px rgba(0,0,0,.06);
       --shadow-lg: 0 8px 24px rgba(0,0,0,.08);
+      --zoom: 1.8;
     }
     body { background: var(--bg); padding: 12px; display: flex; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: var(--txt); }
     
@@ -40,50 +41,99 @@
       overflow: hidden; margin-bottom: 12px;
       box-shadow: inset 0 0 30px rgba(0,0,0,.3);
     }
-    #video { width: 100%; height: 100%; object-fit: cover; transition: opacity .3s; }
+    #video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      /* ZOOM: phóng to 1.8x vùng trung tâm — QR hiện to hơn trong khung */
+      transform: scale(var(--zoom));
+      transform-origin: center center;
+      /* Animation zoom-in mượt khi mở camera */
+      animation: camZoomIn .5s cubic-bezier(.25,.46,.45,.94) forwards;
+    }
+    @keyframes camZoomIn {
+      0% { transform: scale(1); opacity: .7; }
+      100% { transform: scale(var(--zoom)); opacity: 1; }
+    }
+
     .scan-guide {
       position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 160px; height: 160px;
-      border: 2px solid rgba(66,165,245,.35);
-      border-radius: 14px;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,.5);
+      /* Khung scan lớn hơn một chút để khớp vùng zoomed */
+      width: calc(160px * var(--zoom) / 1.2);
+      height: calc(160px * var(--zoom) / 1.2);
+      border: 2px solid rgba(66,165,245,.3);
+      border-radius: 16px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.55);
       pointer-events: none;
-      transition: border-color .3s;
+      animation: guideGlow 2.5s ease-in-out infinite 1.2s;
+      transition: border-color .35s, box-shadow .35s, width .5s, height .5s;
     }
-    .scan-guide.detected {
-      border-color: rgba(76,175,80,.8);
-      box-shadow: 0 0 20px rgba(76,175,80,.15), 0 0 0 9999px rgba(0,0,0,.5);
+    /* Khung nhấp nhạt nhẹ để thu hút mắt */
+    @keyframes guideGlow {
+      0%,100% { border-color: rgba(66,165,245,.3); box-shadow: 0 0 0 9999px rgba(0,0,0,.55); }
+      50% { border-color: rgba(66,165,245,.55); box-shadow: 0 0 0 9999px rgba(0,0,0,.55), 0 0 20px rgba(66,165,245,.06); }
     }
+    /* Khi nhận diện được QR — khung chuyển xanh */
+    .scan-guide.found {
+      border-color: rgba(76,175,80,.7) !important;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.55), 0 0 30px rgba(76,175,80,.12) !important;
+      animation: none !important;
+      transition: all .3s;
+    }
+
     .scan-guide::before, .scan-guide::after,
     .scan-bl, .scan-br {
-      position: absolute; width: 24px; height: 24px;
+      position: absolute; width: 26px; height: 26px;
       border-color: var(--pri-l); border-style: solid;
       transition: border-color .3s, transform .3s;
     }
-    .scan-guide::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-radius: 6px 0 0 0; }
-    .scan-guide::after  { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-radius: 0 6px 0 0; }
-    .scan-bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-radius: 0 0 0 6px; }
-    .scan-br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-radius: 0 0 6px 0; }
-    .scan-guide.detected::before { border-color: #4caf50; transform: scale(1.15); }
-    .scan-guide.detected::after  { border-color: #4caf50; transform: scale(1.15); }
-    .scan-guide.detected .scan-bl  { border-color: #4caf50; transform: scale(1.15); }
-    .scan-guide.detected .scan-br  { border-color: #4caf50; transform: scale(1.15); }
+    .scan-guide::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-radius: 7px 0 0 0; }
+    .scan-guide::after  { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-radius: 0 7px 0 0; }
+    .scan-bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-radius: 0 0 0 7px; }
+    .scan-br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-radius: 0 0 7px 0; }
+    .scan-guide.found::before,
+    .scan-guide.found::after,
+    .scan-guide.found .scan-bl,
+    .scan-guide.found .scan-br {
+      border-color: #4caf50;
+      transform: scale(1.2);
+    }
 
     .scan-laser {
-      width: 85%; height: 2px; left: 7.5%;
-      background: linear-gradient(90deg, transparent 0%, var(--pri-l) 40%, var(--pri-l) 60%, transparent 100%);
+      width: 80%; left: 10%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, var(--pri-l) 35%, var(--pri-l) 65%, transparent 100%);
       position: absolute; top: 0;
-      box-shadow: 0 0 8px var(--pri-l), 0 0 24px rgba(66,165,245,.2);
+      box-shadow: 0 0 8px var(--pri-l), 0 0 20px rgba(66,165,245,.15);
       animation: scanY 2.2s cubic-bezier(.42,0,.58,1) infinite;
       border-radius: 2px;
-      transition: background .3s, box-shadow .3s;
+      transition: background .3s, box-shadow .3s, top .3s;
     }
-    .scan-laser.success {
-      background: linear-gradient(90deg, transparent 0%, #4caf50 40%, #4caf50 60%, transparent 100%);
-      box-shadow: 0 0 12px #4caf50, 0 0 30px rgba(76,175,80,.3);
+    .scan-laser.found {
+      background: linear-gradient(90deg, transparent 0%, #4caf50 35%, #4caf50 65%, transparent 100%);
+      box-shadow: 0 0 12px #4caf50, 0 0 28px rgba(76,175,80,.25);
+      top: 50% !important;
+      animation: none;
+      transition: all .3s;
     }
     @keyframes scanY { 0%,100% { top: 6px; } 50% { top: calc(100% - 8px); } }
+
+    /* Gợi ý di chuyển khi QR ở rìa */
+    .move-hint {
+      position: absolute; z-index: 6; pointer-events: none;
+      font-size: 28px; color: rgba(255,255,255,.85);
+      text-shadow: 0 2px 6px rgba(0,0,0,.5);
+      animation: hintBounce 1s ease-in-out infinite alternate;
+      display: none;
+    }
+    .move-hint.up    { top: 12px; left: 50%; transform: translateX(-50%); }
+    .move-hint.down  { bottom: 50px; left: 50%; transform: translateX(-50%); }
+    .move-hint.left  { left: 12px; top: 50%; transform: translateY(-50%); }
+    .move-hint.right { right: 12px; top: 50%; transform: translateY(-50%); }
+    @keyframes hintBounce { 0% { transform: translateX(-50%) translateY(0); } 100% { transform: translateX(-50%) translateY(-6px); } }
+    .move-hint.left  { animation-name: hintBounceY; }
+    .move-hint.right { animation-name: hintBounceY; }
+    @keyframes hintBounceY { 0% { transform: translateY(-50%) translateX(0); } 100% { transform: translateY(calc(-50% - 6px)) translateX(0); } }
 
     .cam-status {
       position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
@@ -96,7 +146,7 @@
     .cam-status.pulse { animation: statusPulse 1.5s ease infinite; }
     @keyframes statusPulse {
       0%,100% { background: rgba(0,0,0,.6); }
-      50% { background: rgba(66,165,245,.35); }
+      50% { background: rgba(66,165,245,.3); }
     }
 
     .cam-closed-box {
@@ -106,10 +156,7 @@
       animation: fadeOverlay .35s ease;
     }
     @keyframes fadeOverlay { from { opacity: 0; } to { opacity: 1; } }
-    .cam-closed-box .done-icon {
-      font-size: 44px;
-      animation: popIn .4s cubic-bezier(.175,.885,.32,1.275);
-    }
+    .cam-closed-box .done-icon { font-size: 44px; animation: popIn .4s cubic-bezier(.175,.885,.32,1.275); }
     @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     .cam-closed-box .done-text { color: #fff; font-size: 13px; font-weight: 600; animation: fadeUp .4s ease .1s both; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -120,8 +167,8 @@
       font-size: 13px; font-weight: 700; cursor: pointer;
       box-shadow: 0 4px 14px rgba(13,71,161,.35);
       transition: transform .2s cubic-bezier(.4,0,.2,1), box-shadow .2s, background .2s;
-      animation: fadeUp .4s ease .2s both;
       position: relative; overflow: hidden;
+      animation: fadeUp .4s ease .2s both;
     }
     .btn-reopen::after {
       content: ''; position: absolute; inset: 0;
@@ -177,16 +224,8 @@
       transition: transform .6s;
     }
     .btn-submit:hover::before { transform: translateX(120%); }
-    .btn-submit:hover {
-      box-shadow: 0 4px 16px rgba(46,125,50,.35);
-      transform: translateY(-2px);
-      background: #388e3c;
-    }
-    .btn-submit:active {
-      transform: translateY(0) scale(.98);
-      box-shadow: 0 2px 6px rgba(46,125,50,.25);
-      transition-duration: .08s;
-    }
+    .btn-submit:hover { box-shadow: 0 4px 16px rgba(46,125,50,.35); transform: translateY(-2px); background: #388e3c; }
+    .btn-submit:active { transform: translateY(0) scale(.98); box-shadow: 0 2px 6px rgba(46,125,50,.25); transition-duration: .08s; }
     .btn-submit:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
     .btn-submit:disabled::before { display: none; }
 
@@ -199,13 +238,8 @@
     .msg-err { background: var(--err-bg); color: var(--err); border: 1px solid #ef9a9a; animation: msgIn .3s cubic-bezier(.175,.885,.32,1.275); }
     @keyframes msgIn { from { opacity: 0; transform: scale(.92) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
-    /* ─── Focus ring animation cho locked fields ─── */
     input.locked:focus { animation: lockPulse .5s ease; }
-    @keyframes lockPulse {
-      0% { box-shadow: 0 0 0 0 rgba(13,71,161,0); }
-      50% { box-shadow: 0 0 0 4px rgba(13,71,161,.1); }
-      100% { box-shadow: 0 0 0 0 rgba(13,71,161,0); }
-    }
+    @keyframes lockPulse { 0% { box-shadow: 0 0 0 0 rgba(13,71,161,0); } 50% { box-shadow: 0 0 0 4px rgba(13,71,161,.1); } 100% { box-shadow: 0 0 0 0 rgba(13,71,161,0); } }
   </style>
 </head>
 <body>
@@ -214,6 +248,12 @@
 
     <div class="scanner-wrap" id="scannerWrap">
       <video id="video" playsinline muted autoplay></video>
+      <!-- Mũi tên gợi ý di chuyển -->
+      <div class="move-hint up"    id="hintUp">⬆</div>
+      <div class="move-hint down"  id="hintDown">⬇</div>
+      <div class="move-hint left"  id="hintLeft">⬅</div>
+      <div class="move-hint right" id="hintRight">➡</div>
+
       <div class="scan-guide" id="scanGuide">
         <div class="scan-bl"></div><div class="scan-br"></div>
         <div class="scan-laser" id="scanLaser"></div>
@@ -397,15 +437,26 @@
       );
       if (matched) document.getElementById('xaCode').value = matched.maphuongxa;
 
-      /* Hiệu ứng khi nhận diện thành công */
-      scanGuide.classList.add('detected');
-      scanLaser.classList.add('success');
-      setTimeout(() => { scanGuide.classList.remove('detected'); scanLaser.classList.remove('success'); }, 1500);
-
+      scanGuide.classList.add('found');
+      scanLaser.classList.add('found');
+      hideAllHints();
       showMsg('✅ Đã nhận diện CCCD (Đã khóa trường cố định)!', 'ok');
       if (navigator.vibrate) navigator.vibrate(200);
       stopCamera();
       return true;
+    }
+
+    /* ─── Gợi ý di chuyển khi QR ở rìa khung ─── */
+    function showHint(dir) {
+      hideAllHints();
+      var el = document.getElementById('hint' + dir.charAt(0).toUpperCase() + dir.slice(1));
+      if (el) el.style.display = 'block';
+    }
+    function hideAllHints() {
+      ['Up','Down','Left','Right'].forEach(d => {
+        var el = document.getElementById('hint' + d);
+        if (el) el.style.display = 'none';
+      });
     }
 
     function scanFrame() {
@@ -416,7 +467,23 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
-        if (code && code.data && parseQRCode(code.data)) return;
+
+        if (code && code.location) {
+          /* QR được phát hiện — kiểm tra có nằm ngoài khung không */
+          var cx = code.location.center.x / canvas.width;
+          var cy = code.location.center.y / canvas.height;
+          var margin = 0.35; // Nếu QR center nằm ngoài 35% từ tâm → gợi ý di chuyển
+
+          if (cy < margin) showHint('up');
+          else if (cy > 1 - margin) showHint('down');
+          else if (cx < margin) showHint('left');
+          else if (cx > 1 - margin) showHint('right');
+          else hideAllHints();
+
+          if (code.data && parseQRCode(code.data)) return;
+        }
+
+        if (!code) hideAllHints();
       }
       requestAnimationFrame(scanFrame);
     }
@@ -431,17 +498,21 @@
       video.srcObject = null;
       video.style.display = 'none';
       scanGuide.style.display = 'none';
+      scanLaser.style.display = 'none';
       camStatus.style.display = 'none';
       camClosedBox.style.display = 'flex';
+      hideAllHints();
     }
 
     async function startCamera() {
       video.style.display = 'block';
       scanGuide.style.display = 'block';
+      scanLaser.style.display = 'block';
       camStatus.style.display = 'block';
       camClosedBox.style.display = 'none';
       camStatus.textContent = 'Đang kết nối camera sau...';
       camStatus.classList.add('pulse');
+      hideAllHints();
 
       const chains = [
         { video: { facingMode: { exact: "environment" }, width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 }, advanced: [{ focusMode: "continuous" }] } },
