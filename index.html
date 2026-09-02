@@ -33,45 +33,56 @@
       margin-bottom: 12px; font-weight: 700; letter-spacing: -.2px;
     }
 
-    /* ─── Scanner ─── */
+    /* ─── Scanner (đã chỉnh to & gần giống phong cách Zalo) ─── */
     .scanner-wrap {
-      position: relative; width: 100%; height: 220px;
+      position: relative; width: 100%; height: 62vh; min-height: 380px; max-height: 560px;
       background: #0a0a0a; border-radius: var(--r);
       overflow: hidden; margin-bottom: 12px;
       box-shadow: inset 0 0 30px rgba(0,0,0,.3);
     }
     #video { width: 100%; height: 100%; object-fit: cover; transition: opacity .3s; }
+
+    /* Nhãn hướng dẫn phía trên khung quét, kiểu Zalo */
+    .scan-title {
+      position: absolute; top: 18px; left: 0; right: 0;
+      text-align: center; color: #fff; font-size: 14px; font-weight: 600;
+      text-shadow: 0 1px 4px rgba(0,0,0,.6);
+      pointer-events: none; z-index: 2;
+    }
+    .scan-title small {
+      display: block; font-weight: 400; font-size: 11.5px; opacity: .8; margin-top: 3px;
+    }
+
     .scan-guide {
       position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 160px; height: 160px;
-      border: 2px solid rgba(66,165,245,.35);
-      border-radius: 14px;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,.5);
+      width: 80%; height: 46%;
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.55);
       pointer-events: none;
-      transition: border-color .3s;
+      transition: box-shadow .3s;
     }
     .scan-guide.detected {
-      border-color: rgba(76,175,80,.8);
-      box-shadow: 0 0 20px rgba(76,175,80,.15), 0 0 0 9999px rgba(0,0,0,.5);
+      box-shadow: 0 0 24px rgba(76,175,80,.2), 0 0 0 9999px rgba(0,0,0,.55);
     }
     .scan-guide::before, .scan-guide::after,
     .scan-bl, .scan-br {
-      position: absolute; width: 24px; height: 24px;
-      border-color: var(--pri-l); border-style: solid;
+      position: absolute; width: 30px; height: 30px;
+      border-color: #ffffff; border-style: solid;
       transition: border-color .3s, transform .3s;
     }
-    .scan-guide::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-radius: 6px 0 0 0; }
-    .scan-guide::after  { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-radius: 0 6px 0 0; }
-    .scan-bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-radius: 0 0 0 6px; }
-    .scan-br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-radius: 0 0 6px 0; }
-    .scan-guide.detected::before { border-color: #4caf50; transform: scale(1.15); }
-    .scan-guide.detected::after  { border-color: #4caf50; transform: scale(1.15); }
-    .scan-guide.detected .scan-bl  { border-color: #4caf50; transform: scale(1.15); }
-    .scan-guide.detected .scan-br  { border-color: #4caf50; transform: scale(1.15); }
+    .scan-guide::before { top: -3px; left: -3px; border-width: 4px 0 0 4px; border-radius: 8px 0 0 0; }
+    .scan-guide::after  { top: -3px; right: -3px; border-width: 4px 4px 0 0; border-radius: 0 8px 0 0; }
+    .scan-bl { bottom: -3px; left: -3px; border-width: 0 0 4px 4px; border-radius: 0 0 0 8px; }
+    .scan-br { bottom: -3px; right: -3px; border-width: 0 4px 4px 0; border-radius: 0 0 8px 0; }
+    .scan-guide.detected::before { border-color: #4caf50; transform: scale(1.1); }
+    .scan-guide.detected::after  { border-color: #4caf50; transform: scale(1.1); }
+    .scan-guide.detected .scan-bl  { border-color: #4caf50; transform: scale(1.1); }
+    .scan-guide.detected .scan-br  { border-color: #4caf50; transform: scale(1.1); }
 
     .scan-laser {
-      width: 85%; height: 2px; left: 7.5%;
+      width: 92%; height: 2px; left: 4%;
       background: linear-gradient(90deg, transparent 0%, var(--pri-l) 40%, var(--pri-l) 60%, transparent 100%);
       position: absolute; top: 0;
       box-shadow: 0 0 8px var(--pri-l), 0 0 24px rgba(66,165,245,.2);
@@ -86,16 +97,16 @@
     @keyframes scanY { 0%,100% { top: 6px; } 50% { top: calc(100% - 8px); } }
 
     .cam-status {
-      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-      color: #fff; font-size: 11px; font-weight: 500;
-      background: rgba(0,0,0,.6); padding: 4px 14px;
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: 12px; font-weight: 500;
+      background: rgba(0,0,0,.55); padding: 6px 16px;
       border-radius: 20px; backdrop-filter: blur(6px);
       white-space: nowrap;
       transition: background .3s, transform .3s;
     }
     .cam-status.pulse { animation: statusPulse 1.5s ease infinite; }
     @keyframes statusPulse {
-      0%,100% { background: rgba(0,0,0,.6); }
+      0%,100% { background: rgba(0,0,0,.55); }
       50% { background: rgba(66,165,245,.35); }
     }
 
@@ -214,6 +225,7 @@
 
     <div class="scanner-wrap" id="scannerWrap">
       <video id="video" playsinline muted autoplay></video>
+      <div class="scan-title">Quét mã QR trên CCCD<small>Hướng mặt sau thẻ vào khung bên dưới</small></div>
       <div class="scan-guide" id="scanGuide">
         <div class="scan-bl"></div><div class="scan-br"></div>
         <div class="scan-laser" id="scanLaser"></div>
